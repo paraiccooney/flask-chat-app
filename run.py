@@ -1,23 +1,46 @@
 import os
-from flask import Flask
+from datetime import datetime
+from flask import Flask, redirect, render_template, request, session, url_for
+
 
 app = Flask(__name__)
+app.secret_key = "randomstring123"
+messages = []
 
 
-@app.route("/")
+def add_message(username, message):
+    """Add messages to the `messages` list"""
+    now = datetime.now().strftime("%H:%M:%S")
+    messages.append({"timestamp": now, "from": username, "message": message})
+
+
+@app.route("/", methods=["GET", "POST"])
 def index():
     """Main page with instructions"""
-    return "To send a message use: /USERNAME/MESSAGE"
+    if request.method == "POST":
+        session["username"] = request.form["username"]
 
-# if we type /Paraic into the url then the message "Hi Paraic" is returned on screen
-@app.route("/<username>")
+    if "username" in session:
+        return redirect(url_for("user", username=session["username"]))
+
+    return render_template("index.html")
+
+
+@app.route("/chat/<username>", methods=["GET", "POST"])
 def user(username):
-    return "Hi " + username
+    """Add and display chat messages"""
+    if request.method == "POST":
+        username = session["username"]
+        message = request.form["message"]
+        add_message(username, message)
+        return redirect(url_for("user", username=session["username"]))
 
-# if we type /Paraic/thisMessage into the url then "Paraic: thisMessage" is returned on screen
-@app.route("/<username>/<message>")
-def send_message(username, message):
-    return "{0}: {1}".format(username, message)
+    return render_template("chat.html", username=username,
+                           chat_messages=messages)
 
 
-app.run(host=os.getenv("IP"), port=int(os.getenv("PORT")), debug=True)
+app.run(host=os.getenv("IP", "0.0.0.0"),
+        port=int(os.getenv("PORT", "5000")), debug=False)
+
+
+
